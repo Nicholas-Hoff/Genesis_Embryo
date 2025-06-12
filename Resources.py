@@ -2,8 +2,12 @@
 
 import threading
 import time
+import os
+import signal
+import logging
+import json
 import psutil
-from typing import Optional
+from typing import Optional, Dict, List, Set
 
 class CPUThrottler:
     __slots__ = (
@@ -115,3 +119,130 @@ def spawn_resource_controllers(
         ram.start()
         controllers.append(ram)
     return controllers
+
+
+class DynamicResourceManager:
+    """Dynamic CPU/Memory manager with crash learning."""
+
+    def __init__(
+        self,
+        crash_tracker=None,
+        sample_interval: float = 1.0,
+        target_cpu_pct: float = 80.0,
+        target_mem_pct: float = 90.0,
+    ) -> None:
+        self.crash_tracker = crash_tracker
+        self.sample_interval = sample_interval
+        self.target_cpu = target_cpu_pct
+        self.target_mem = target_mem_pct
+        self.whitelist: Set[int] = {os.getpid()}
+        self.blacklist: Set[str] = set()
+        self.priorities: Dict[int, str] = {}
+        self._running = False
+        self._thread: Optional[threading.Thread] = None
+        self.logger = logging.getLogger(__name__)
+
+    # ─── Process Metrics ──────────────────────────────────────────
+    def _collect(self) -> Dict[int, Dict[str, float]]:
+        procs = {}
+        for p in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent', 'nice', 'cmdline']):
+            try:
+                procs[p.pid] = p.info
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        return procs
+
+    def _categorize(self, info: Dict[str, float]) -> str:
+        if info['pid'] in self.whitelist:
+            return 'critical'
+        mem = info.get('memory_percent', 0.0)
+        if mem > 10:
+            return 'high'
+        elif mem > 5:
+            return 'medium'
+        return 'low'
+
+    # ─── Priority & Affinity Adjustments ──────────────────────────
+    def _adjust(self, procs: Dict[int, Dict[str, float]]) -> None:
+        total_cores = list(range(psutil.cpu_count(logical=True)))
+        for pid, info in procs.items():
+            cat = self._categorize(info)
+            self.priorities[pid] = cat
+            try:
+                proc = psutil.Process(pid)
+                if cat == 'critical':
+                    proc.nice(-5)
+                    if hasattr(proc, 'cpu_affinity'):
+                        proc.cpu_affinity(total_cores)
+                elif cat == 'high':
+                    proc.nice(0)
+                elif cat == 'medium':
+                    proc.nice(5)
+                    if hasattr(proc, 'cpu_affinity') and len(total_cores) > 1:
+                        proc.cpu_affinity(total_cores[:-1])
+                else:
+                    proc.nice(10)
+                    if hasattr(proc, 'cpu_affinity') and len(total_cores) > 1:
+                        proc.cpu_affinity([total_cores[-1]])
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+
+    # ─── Safe Termination ────────────────────────────────────────
+    def safe_terminate(self, pid: int) -> bool:
+        if pid in self.whitelist:
+            self.logger.warning("Attempted to terminate whitelisted PID")
+            return False
+        try:
+            proc = psutil.Process(pid)
+            name = proc.name()
+        except psutil.NoSuchProcess:
+            return True
+        if name in self.blacklist:
+            self.logger.warning("Process is blacklisted, skipping termination")
+            return False
+        try:
+            proc.terminate()
+            proc.wait(5)
+            return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            return False
+        except psutil.TimeoutExpired:
+            proc.kill()
+            return True
+
+    def _handle_memory_pressure(self, procs: Dict[int, Dict[str, float]]) -> None:
+        vm = psutil.virtual_memory()
+        if vm.percent <= self.target_mem:
+            return
+        # sort by memory usage descending
+        victims = sorted(procs.items(), key=lambda x: x[1].get('memory_percent', 0.0), reverse=True)
+        for pid, info in victims:
+            if self.priorities.get(pid) == 'low':
+                if self.safe_terminate(pid):
+                    self.logger.info(f"Terminated PID {pid} to reclaim memory")
+                    if self.crash_tracker:
+                        ctx = {"pid": pid, "name": info.get('name'), "action": "terminate"}
+                        self.crash_tracker.record_crash("resource", "terminate", ctx)
+                if psutil.virtual_memory().percent <= self.target_mem:
+                    break
+
+    # ─── Main Loop ───────────────────────────────────────────────
+    def _run(self) -> None:
+        while self._running:
+            procs = self._collect()
+            self._adjust(procs)
+            self._handle_memory_pressure(procs)
+            time.sleep(self.sample_interval)
+
+    def start(self) -> None:
+        if self._running:
+            return
+        self._running = True
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._running = False
+        if self._thread:
+            self._thread.join()
+
