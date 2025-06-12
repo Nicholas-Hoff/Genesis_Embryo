@@ -34,7 +34,7 @@ from colorama import init as colorama_init, Fore, Style
 
 from Health import SystemHealth, Survival, Heartbeat
 from HealthMonitor import HealthMonitor
-from Resources import spawn_resource_controllers
+from Resources import spawn_resource_controllers, DynamicResourceManager
 from Mutation import Archive, MutationEngine, mutation_cycle, DEFAULT_STRATEGIES_MAP, tweak_task_param, TASK_PARAM_SAMPLERS
 from Strategy import StrategyRegistry, SynthStrategy
 from Goals import Goal, RollingStats, GoalGenerator, GoalEngine, default_q_values
@@ -403,6 +403,15 @@ class Embryo:
         self.disable_snapshots = disable_snapshots
         self.health       = HealthMonitor(sample_interval=self.metrics_interval)
         self.state_path = db_path
+
+        # Dynamic resource manager
+        self.resource_manager = DynamicResourceManager(
+            crash_tracker=self.CrashTracker,
+            sample_interval=self.metrics_interval,
+            target_cpu_pct=self.cfg.get("target_cpu_usage_pct"),
+            target_mem_pct=self.cfg.get("target_ram_usage_pct"),
+        )
+        self.resource_manager.start()
 
 
         
@@ -1332,9 +1341,11 @@ if __name__ == "__main__":
         print("\n[EXIT] interrupted—shutting down.")
         for c in controllers:
             c.stop()
+        embryo.resource_manager.stop()
         sys.exit(0)
 
     print(f"[EXIT] reached {max_beats} beats, shutting down.")
     for c in controllers:
         c.stop()
+    embryo.resource_manager.stop()
     sys.exit(0)

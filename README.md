@@ -16,6 +16,7 @@ An autonomous, evolutionary AI framework that continuously adapts and improves i
 
 ### Resource Controllers (`Resources.py`)
 - CPU throttling and RAM burning daemons for stress tests.
+- `DynamicResourceManager` monitors processes, adjusts priorities, and safely terminates low-priority tasks under memory pressure.
 
 ### Mutation Engine (`Mutation.py`, `WeightManager.py`, `Meta_Strategy_Engine.py`, `Strategy.py`)
 - Core strategies (gaussian, creep, random_uniform, reset).
@@ -113,6 +114,7 @@ python Genesis_Monitor.py
 ├── Health.py
 ├── HealthMonitor.py
 ├── Resources.py
+│   └── DynamicResourceManager class for adaptive process control
 ├── Mutation.py
 ├── Meta_Strategy_Engine.py
 ├── Strategy.py
