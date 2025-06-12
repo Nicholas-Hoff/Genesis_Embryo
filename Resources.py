@@ -165,25 +165,37 @@ class DynamicResourceManager:
     # ─── Priority & Affinity Adjustments ──────────────────────────
     def _adjust(self, procs: Dict[int, Dict[str, float]]) -> None:
         total_cores = list(range(psutil.cpu_count(logical=True)))
+        win_platform = os.name == 'nt'
         for pid, info in procs.items():
             cat = self._categorize(info)
             self.priorities[pid] = cat
             try:
                 proc = psutil.Process(pid)
-                if cat == 'critical':
-                    proc.nice(-5)
-                    if hasattr(proc, 'cpu_affinity'):
-                        proc.cpu_affinity(total_cores)
-                elif cat == 'high':
-                    proc.nice(0)
-                elif cat == 'medium':
-                    proc.nice(5)
-                    if hasattr(proc, 'cpu_affinity') and len(total_cores) > 1:
-                        proc.cpu_affinity(total_cores[:-1])
+
+                if win_platform:
+                    mapping = {
+                        'critical': psutil.HIGH_PRIORITY_CLASS,
+                        'high': psutil.ABOVE_NORMAL_PRIORITY_CLASS,
+                        'medium': psutil.NORMAL_PRIORITY_CLASS,
+                        'low': psutil.BELOW_NORMAL_PRIORITY_CLASS,
+                    }
                 else:
-                    proc.nice(10)
-                    if hasattr(proc, 'cpu_affinity') and len(total_cores) > 1:
-                        proc.cpu_affinity([total_cores[-1]])
+                    mapping = {
+                        'critical': -5,
+                        'high': 0,
+                        'medium': 5,
+                        'low': 10,
+                    }
+
+                proc.nice(mapping.get(cat, mapping['low']))
+
+                # CPU affinity adjustments are platform independent
+                if cat == 'critical' and hasattr(proc, 'cpu_affinity'):
+                    proc.cpu_affinity(total_cores)
+                elif cat == 'medium' and hasattr(proc, 'cpu_affinity') and len(total_cores) > 1:
+                    proc.cpu_affinity(total_cores[:-1])
+                elif cat == 'low' and hasattr(proc, 'cpu_affinity') and len(total_cores) > 1:
+                    proc.cpu_affinity([total_cores[-1]])
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
 
