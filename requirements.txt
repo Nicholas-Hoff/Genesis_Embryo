@@ -1,0 +1,12 @@
+psutil
+numpy
+torch
+duckdb
+pandas
+dash
+dash-daq
+plotly
+scikit-learn
+colorama
+pydantic
+astor
