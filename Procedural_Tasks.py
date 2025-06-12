@@ -73,13 +73,18 @@ class ProceduralTaskGenerator:
 
             elif scenario == 'io_stress':
                 name = f"IOStress_{self.embryo.hb.count}"
-                io_rate = metrics.get('net_io', 0.0)
+                dio = metrics.get('disk_io')
+                interval = self.embryo.cfg.get('metrics_interval', 1.0)
+                io_rate = (
+                    (dio.read_bytes + dio.write_bytes) / (1024 * 1024 * interval)
+                    if dio else 0.0
+                )
                 def eval_fn(): return 1.0 - min(1.0, io_rate / (io_rate + 1e-6))
                 def reward_fn(): return min(1.0, io_rate / (io_rate + 1e-6))
                 tasks.append(Goal(
                     name, eval_fn, reward_fn,
                     weight=1.5, duration=dur,
-                    meta={'scenario': scenario}
+                    meta={'scenario': scenario, 'rate_mb_s': io_rate}
                 ))
 
             elif scenario == 'network_spike':
