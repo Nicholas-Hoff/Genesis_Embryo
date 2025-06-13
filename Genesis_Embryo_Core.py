@@ -693,7 +693,7 @@ class Embryo:
             'db', 'snap_mgr', 'state_manager', 'duckdb_state_io',
             'world_model', 'world_trainer', 'action_embedding',
             'critic', 'goal_engine', 'goal_gen', 'health',
-            '_log_pool'
+            '_log_pool', 'resource_manager'
         ):
             if hasattr(self, attr):
                 setattr(new, attr, getattr(self, attr))
@@ -704,7 +704,7 @@ class Embryo:
                 'db', 'snap_mgr', 'state_manager', 'duckdb_state_io',
                 'world_model', 'world_trainer', 'action_embedding',
                 'critic', 'goal_engine', 'goal_gen', 'health',
-                '_log_pool'
+                '_log_pool', 'resource_manager'
             ):
                 setattr(new, key, copy.deepcopy(val, memo))
 
@@ -828,6 +828,15 @@ class Embryo:
 
         # ─── Executor (re‐create anything __deepcopy__ would) ──────────
         self._log_pool = ThreadPoolExecutor(max_workers=4)
+
+        # ─── Dynamic Resource Manager ───────────────────────────────
+        self.resource_manager = DynamicResourceManager(
+            crash_tracker=self.CrashTracker,
+            sample_interval=self.metrics_interval,
+            target_cpu_pct=self.cfg.get("target_cpu_usage_pct"),
+            target_mem_pct=self.cfg.get("target_ram_usage_pct"),
+        )
+        self.resource_manager.start()
 
 
 
