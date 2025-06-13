@@ -1033,7 +1033,9 @@ class Embryo:
             logger.info(
                 f"[MO-SCORE] w=[{w_cpu:.2f},{w_mem:.2f},{w_disk:.2f},{w_net:.2f}] -> {composite:.3f}"
             )
-            print(f"HB {self.hb.count} composite={composite:.4f}")
+            logger.info(
+                f"[HB] {self.hb.count} composite={composite:.4f}"
+            )
 
             if self.hb.count == 250:
                 # throttle down statement-level mutations
