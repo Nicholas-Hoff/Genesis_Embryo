@@ -49,5 +49,6 @@
     "disk_ok_streak": 3,
     "cpu_bonus": 0.05,
     "mem_bonus": 0.05,
-    "disk_bonus": 0.05
+    "disk_bonus": 0.05,
+    "initial_weights": [0.35, 0.35, 0.2, 0.1]
 }
