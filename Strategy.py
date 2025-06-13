@@ -41,7 +41,9 @@ class SynthStrategy:
 
 class StrategyRegistry:
     """
-    Manages a collection of SynthStrategy objects, prunes dead ones.
+    Manages a collection of ``SynthStrategy`` objects and prunes dead ones.
+
+    Registration events are logged at ``DEBUG`` level.
     """
     # Names never auto-pruned; we now also keep tweak_ strategies alive
     DEFAULT_STRATEGIES = {"gaussian", "random_uniform", "creep", "reset"}
@@ -56,8 +58,8 @@ class StrategyRegistry:
         if strategy.name in self._strategies:
             return
         self._strategies[strategy.name] = strategy
-        logging.info(f"[REGISTER] strategy '{strategy.name}'")
-        print(f"{Fore.CYAN}[REGISTER] strategy {strategy.name}{Style.RESET_ALL}")
+        logging.debug(f"[REGISTER] strategy '{strategy.name}'")
+        # print(f"{Fore.CYAN}[REGISTER] strategy {strategy.name}{Style.RESET_ALL}")
 
     def get(self, name: str) -> Optional[SynthStrategy]:
         """Retrieve a single registered strategy by name."""
