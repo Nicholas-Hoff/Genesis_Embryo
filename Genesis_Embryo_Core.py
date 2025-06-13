@@ -723,7 +723,7 @@ class Embryo:
             'current_goal':           getattr(self, 'current_goal', None),
 
             # ─── Heartbeat & Curiosity ────────────────────────────────────
-            'hb':                     copy.deepcopy(self.hb),
+            'hb':                     type('HB', (), {'count': self.hb.count})(),
             'cur':                    copy.deepcopy(self.cur),
 
             # ─── Mutation parameters ──────────────────────────────────────
@@ -777,7 +777,12 @@ class Embryo:
         self.current_goal           = state['current_goal']
 
         # ─── Heartbeat & Curiosity ────────────────────────────────────
-        self.hb                     = state['hb']
+        hb_state = state['hb']
+        if isinstance(hb_state, Heartbeat):
+            self.hb = hb_state
+        else:
+            self.hb = Heartbeat()
+            self.hb.count = getattr(hb_state, 'count', 0)
         self.cur                    = state['cur']
 
         # ─── Mutation parameters ──────────────────────────────────────
