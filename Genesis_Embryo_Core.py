@@ -1150,6 +1150,7 @@ class Embryo:
 
         # ─── Seed from archive at start of cycle ────────────────────────
         if hasattr(self.archive, "seed"):
+            logger.debug("[ARCHIVE] attempting seed from archive")
             self.archive.seed(self)
 
         # 0.1) ensure our embedding matches the new action_space size
@@ -1213,6 +1214,9 @@ class Embryo:
 
             # If we've been stuck for several cycles, replay the best state
             if self.bad_cycles >= self.rollback_required:
+                logger.info(
+                    f"[ARCHIVE] replaying best state after {self.bad_cycles} stagnant cycles"
+                )
                 if hasattr(self.archive, "replay_success"):
                     self.archive.replay_success(self)
 
