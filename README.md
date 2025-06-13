@@ -161,6 +161,15 @@ Contributions, bug reports, and feature requests are welcome! Please:
 4. Push to your branch (`git push origin feature/YourFeature`)
 5. Open a Pull Request
 
+## 🧪 Running Tests
+
+Install the dependencies (see Installation above) and then execute:
+
+```bash
+pytest
+```
+
+
 ## 📜 License
 
 This project is released under the MIT License. See `LICENSE` for details.
