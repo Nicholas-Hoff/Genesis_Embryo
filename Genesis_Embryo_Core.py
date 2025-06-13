@@ -199,6 +199,12 @@ class Config(BaseModel):
     mem_bonus: float      = Field(0.05, ge=0.0, description="Reward bonus on Memory metric")
     disk_bonus: float     = Field(0.05, ge=0.0, description="Reward bonus on Disk metric")
 
+    # ─── Initial multi-objective weights ─────────────────────────
+    initial_weights: List[float] = Field(
+        default_factory=lambda: [1/4] * 4,
+        description="Starting weights for [cpu, memory, disk, network]"
+    )
+
 
 class ConfigManager:
     """
