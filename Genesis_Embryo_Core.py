@@ -1147,7 +1147,11 @@ class Embryo:
         # ─── 0) Autonomous strategy growth ─────────────────────────────
         self.meta_engine.generate_and_register()
         self.sync_actions()
-        
+
+        # ─── Seed from archive at start of cycle ────────────────────────
+        if hasattr(self.archive, "seed"):
+            self.archive.seed(self)
+
         # 0.1) ensure our embedding matches the new action_space size
         n_actions = len(self.action_space)
         old_n, dim = self.action_embedding.num_embeddings, self.action_embedding.embedding_dim
@@ -1206,6 +1210,11 @@ class Embryo:
                 return_strategy=True
             )
             logger.info(f"[MUTATION APPLIED] {strat}")
+
+            # If we've been stuck for several cycles, replay the best state
+            if self.bad_cycles >= self.rollback_required:
+                if hasattr(self.archive, "replay_success"):
+                    self.archive.replay_success(self)
 
             # ─── 5) World-model update ────────────────────────────────────
             after_state  = self.collect_state()
