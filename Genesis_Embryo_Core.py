@@ -299,14 +299,14 @@ class Curiosity:
     def choose(self, targets):
         if random.random() < self.exploration_rate():
             t = random.choice(targets)
-            print(f"{Fore.GREEN}[CURIOSITY] Exploring {t}{Style.RESET_ALL}")
+            logger.info(f"[CURIOSITY] Exploring {t}")
         else:
             best = max(
                 ((self.records[t]["succ"] / max(1, self.records[t]["att"]), t)
                  for t in targets),
                 key=lambda x: x[0]
             )[1]
-            print(f"{Fore.GREEN}[CURIOSITY] Exploiting {best}{Style.RESET_ALL}")
+            logger.info(f"[CURIOSITY] Exploiting {best}")
             t = best
         return t
 
@@ -326,7 +326,7 @@ class Embryo:
 
         # Device & critic
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print(f"[EMBRYO INIT] using device: {self.device}")
+        logger.info(f"[EMBRYO INIT] using device: {self.device}")
         self.critic = (
             critic.to(self.device)
             if critic is not None
@@ -464,7 +464,7 @@ class Embryo:
 
 
         self.mode = getattr(self.launch_args, "mode", "stabilize")
-        print(f"[EMBRYO INIT] Run mode: {self.mode.upper()}")
+        logger.info(f"[EMBRYO INIT] Run mode: {self.mode.upper()}")
 
         # Control parameters
         self.survival_threshold      = self.cfg.get("survival_threshold")
@@ -601,7 +601,7 @@ class Embryo:
         # Generation & mutation counters
         self.bad_cycles = 0
 
-        print(f"[EMBRYO INIT] Goal engine in {self.goal_mode.upper()} mode")
+        logger.info(f"[EMBRYO INIT] Goal engine in {self.goal_mode.upper()} mode")
 
 
     def _mg(self, metric: str, field: str):
@@ -846,7 +846,7 @@ class Embryo:
             self.gene_count += 1
         elif result == "FAILURE" and self.gene_count > self.gene_min:
             self.gene_count -= 1
-        print(f"{Fore.YELLOW}[GENE COUNT] adjusted to {self.gene_count}{Style.RESET_ALL}")
+        logger.info(f"[GENE COUNT] adjusted to {self.gene_count}")
 
     def evolve_param_bounds(self, param, success):
         lower, upper = self.param_bounds[param]
@@ -862,7 +862,7 @@ class Embryo:
     # 7. Save Q-table after run ends:
     def save_q_table(self):
         self.goal_engine.save_q_table()
-        print(f"{Fore.YELLOW}[GOAL ENGINE] Q-table saved to disk{Style.RESET_ALL}")
+        logger.info("[GOAL ENGINE] Q-table saved to disk")
 
     def save_all(self):
         self.duckdb_state_io.save(self)
@@ -900,10 +900,10 @@ class Embryo:
                 round(self.heartbeat_interval,3), round(self.survival_threshold,3),
                 recent_survival, recent_trend, most_used, round(self.mutation_rate,4)
             )
-            print(summary.strip())
+            logger.info(summary.strip())
             self.mem.log("REFLECTION", summary.strip().replace("\n"," "))
         except Exception as e:
-            print(f"{Fore.RED}[REFLECTION ERROR] {e}{Style.RESET_ALL}")
+            logger.error(f"[REFLECTION ERROR] {e}")
 
     PLATEAU_WINDOW = 50
     IMPROVEMENT_THRESH = 0.01
@@ -926,7 +926,7 @@ class Embryo:
 
 
     def act_on_goal(self, goal_name):
-        print(f"{Fore.GREEN}[GOAL EXECUTION] Acting on goal: {goal_name}{Style.RESET_ALL}")
+        logger.info(f"[GOAL EXECUTION] Acting on goal: {goal_name}")
         param_map = {
             "increase_survival_rate": "survival_threshold",
             "reduce_mutation_error": "mutation_rate",
@@ -940,7 +940,7 @@ class Embryo:
                 updated = value * 1.05 if "increase" in goal_name or "maximize" in goal_name else value * 0.95
                 updated = self.apply_param_bounds(param, updated)
                 setattr(self, param, updated)
-                print(f"{Fore.YELLOW}[PARAM ADJUST] {param} → {updated:.4f}{Style.RESET_ALL}")
+                logger.info(f"[PARAM ADJUST] {param} -> {updated:.4f}")
 
     def evaluate_reward(self):
         return self.metrics.get("reward", 0)
@@ -957,20 +957,17 @@ class Embryo:
             logging.warning(f"[MEMORY] at {mem_pct:.1f}% RAM — skipping heavy work")
             self.hb.beat()
             logging.debug(f"[HEARTBEAT] #{self.hb.count} (skipped)")
-            print(f"{Fore.CYAN}[HEARTBEAT] #{self.hb.count} (skipped){Style.RESET_ALL}")
             return
 
         try:
             # ─── HEARTBEAT & SNAPSHOT ───────────────────────────────────
             self.hb.beat()
             logging.debug(f"[HEARTBEAT] #{self.hb.count}")
-            print(f"{Fore.CYAN}[HEARTBEAT] #{self.hb.count}{Style.RESET_ALL}")
 
             if not getattr(self, 'disable_snapshots', False) and hasattr(self, 'snap_mgr'):
                 # every N beats, export into the *single* parquet_export dir
                 if self.hb.count % 10 == 0 and mem_pct < self.cfg.get("snapshot_ram_threshold_pct"):
                     logging.info(f"[SNAPSHOT] exporting to {self.snap_mgr.parquet_dir}")
-                    print(f"{Fore.CYAN}[SNAPSHOT] exporting to {self.snap_mgr.parquet_dir}{Style.RESET_ALL}")
                     # no argument → uses self.parquet_dir
                     self.snap_mgr.export_snapshot()
 
@@ -994,9 +991,10 @@ class Embryo:
             disk_s      = surv_dict['disk']
             network_s   = surv_dict['network']
 
-            print(f"{Fore.GREEN}[SURVIVAL SCORE] composite={survival:.4f}, "
-                  f"cpu={cpu_s:.4f}, memory={memory_s:.4f}, "
-                  f"disk={disk_s:.4f}, network={network_s:.4f}{Style.RESET_ALL}")
+            logger.info(
+                f"[SURVIVAL SCORE] composite={survival:.4f}, cpu={cpu_s:.4f}, "
+                f"memory={memory_s:.4f}, disk={disk_s:.4f}, network={network_s:.4f}"
+            )
 
             # ─── BEHAVIOR, NOVELTY, EFFICIENCY, BONUS ───────────────────
             behavior_vec = [surv_dict[k] for k in BEHAVIOR_KEYS]
@@ -1026,8 +1024,10 @@ class Embryo:
               + w_disk  * surv_dict['disk']
               + w_net   * surv_dict['network']
             )
-            print(f"{Fore.CYAN}[MO-SCORE] w=[{w_cpu:.2f},{w_mem:.2f},{w_disk:.2f},{w_net:.2f}] → "
-                  f"{composite:.3f}{Style.RESET_ALL}")
+            logger.info(
+                f"[MO-SCORE] w=[{w_cpu:.2f},{w_mem:.2f},{w_disk:.2f},{w_net:.2f}] -> {composite:.3f}"
+            )
+            print(f"HB {self.hb.count} composite={composite:.4f}")
 
             if self.hb.count == 250:
                 # throttle down statement-level mutations
@@ -1079,7 +1079,7 @@ class Embryo:
                 self.critic_optim.zero_grad()
                 loss.backward()
                 self.critic_optim.step()
-                print(f"{Fore.CYAN}[CRITIC] training loss={loss.item():.6f}{Style.RESET_ALL}")
+                logger.info(f"[CRITIC] training loss={loss.item():.6f}")
 
             # ─── DYNAMIC WEIGHT ADAPTATION ───────────────────────────────
             delta = composite - self.prev_composite
@@ -1091,7 +1091,7 @@ class Embryo:
             goals = self.goal_gen.propose_goals()
             if goals:
                 action = self.goal_engine.choose_action(self.collect_state(), goals)
-                print(f"{Fore.YELLOW}[GOAL] chosen → {action}{Style.RESET_ALL}")
+                logger.info(f"[GOAL] chosen -> {action}")
                 if self.goal_mode == "full":
                     self.act_on_goal(action)
                 self.current_goal = action
@@ -1101,13 +1101,13 @@ class Embryo:
             # ─── AUTOSAVE & SCHEDULED MUTATION ──────────────────────────
             now_ts = time.time()
             if now_ts - self.last_save > self.cfg.get("autosave_seconds"):
-                print(f"{Fore.YELLOW}[AUTOSAVE] saving…{Style.RESET_ALL}")
+                logger.info("[AUTOSAVE] saving…")
                 self.save_all()
                 self.last_save = now_ts
 
             if now_ts - self.last_mut > self.mutation_interval \
                and mem_pct < self.cfg.get("mutation_ram_threshold_pct"):
-                print(f"{Fore.YELLOW}[MUTATE] interval reached…{Style.RESET_ALL}")
+                logger.info("[MUTATE] interval reached…")
                 self.mutate_cycle()
                 self.last_mut = now_ts
 
@@ -1125,7 +1125,7 @@ class Embryo:
                 "metrics":    self.metrics.copy(),
             }
             self.CrashTracker.log_crash(ctx)
-            print(f"{Fore.RED}[THINK ERROR] {e}{Style.RESET_ALL}")
+            logger.error(f"[THINK ERROR] {e}")
         finally:
 
             gc.collect()
@@ -1162,7 +1162,7 @@ class Embryo:
             self.action_embedding = new_emb
 
         if not self.action_space:
-            print(f"{Fore.YELLOW}[MUTATE] no strategies registered, skipping plan{Style.RESET_ALL}")
+            logger.warning("[MUTATE] no strategies registered, skipping plan")
             return
 
         try:
@@ -1205,7 +1205,7 @@ class Embryo:
                 alpha=0.05,
                 return_strategy=True
             )
-            print(f"{Fore.YELLOW}[MUTATION APPLIED] {strat}{Style.RESET_ALL}")
+            logger.info(f"[MUTATION APPLIED] {strat}")
 
             # ─── 5) World-model update ────────────────────────────────────
             after_state  = self.collect_state()
@@ -1218,7 +1218,7 @@ class Embryo:
                 choice_emb,
                 actual_delta.unsqueeze(0)
             )
-            print(f"{Fore.GREEN}[WORLD MODEL] train loss={wm_loss:.6f}{Style.RESET_ALL}")
+            logger.info(f"[WORLD MODEL] train loss={wm_loss:.6f}")
 
             # ─── 6) Adapt planning_weights (single-step) ──────────────────
             reward = new_score - prev_surv
@@ -1272,7 +1272,7 @@ class Embryo:
                 'message': str(e), 'traceback': tb, 'heartbeat': self.hb.count
             }
             self.CrashTracker.log_crash(ctx)
-            print(f"{Fore.RED}[MUTATE ERROR] {e}{Style.RESET_ALL}")
+            logger.error(f"[MUTATE ERROR] {e}")
             self.save_all()
 
     def sync_actions(self):
@@ -1322,9 +1322,9 @@ if __name__ == "__main__":
     try:
         ckpt = torch.load("critic_pretrained.pt", map_location=device)
         critic.load_state_dict(ckpt)
-        print("[MAIN] Loaded pretrained Critic")
+        logger.info("[MAIN] Loaded pretrained Critic")
     except FileNotFoundError:
-        print("[MAIN] No pretrained critic found; using fresh init")
+        logger.info("[MAIN] No pretrained critic found; using fresh init")
     critic.eval()
 
     # 3) SafeRotatingFile Handler Logging
@@ -1340,7 +1340,7 @@ if __name__ == "__main__":
         launch_args=args
     )
     embryo.mode = args.mode
-    print(f"[START] new run, mode={embryo.mode}")
+    logger.info(f"[START] new run, mode={embryo.mode}")
 
     # 5) Heartbeat loop
     max_beats = args.beats
@@ -1352,13 +1352,13 @@ if __name__ == "__main__":
                 embryo.think()
                 next_beat += embryo.heartbeat_interval
     except KeyboardInterrupt:
-        print("\n[EXIT] interrupted—shutting down.")
+        logger.info("[EXIT] interrupted—shutting down.")
         for c in controllers:
             c.stop()
         embryo.resource_manager.stop()
         sys.exit(0)
 
-    print(f"[EXIT] reached {max_beats} beats, shutting down.")
+    logger.info(f"[EXIT] reached {max_beats} beats, shutting down.")
     for c in controllers:
         c.stop()
     embryo.resource_manager.stop()

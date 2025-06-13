@@ -6,6 +6,8 @@ import json
 import os
 from collections import deque
 from colorama import Fore, Style
+
+logger = logging.getLogger(__name__)
 from sklearn.preprocessing import MinMaxScaler
 import settings
 from typing import Dict, Any, Optional
@@ -36,8 +38,10 @@ def calibrate_max_io() -> float:
 
 # If running as a script, calibrate once
 if __name__ == '__main__':
+    from Logging_Config import configure_logging
+    configure_logging()
     MAX_IO_MBPS = calibrate_max_io()
-    print(f"{Fore.CYAN}[CALIBRATION] MAX_IO_MBPS = {MAX_IO_MBPS:.2f} MB/s{Style.RESET_ALL}")
+    logger.info(f"[CALIBRATION] MAX_IO_MBPS = {MAX_IO_MBPS:.2f} MB/s")
 
 
 # def collect_process_metrics() -> dict[int, dict]:

@@ -3,11 +3,14 @@
 
 import os
 import time
+import logging
 import dash
 from dash import dcc, html, Input, Output, State
 import dash_daq as daq
 import plotly.graph_objs as go
 import duckdb
+
+logger = logging.getLogger(__name__)
 import pandas as pd
 
 # ——— Configuration ———
@@ -252,6 +255,8 @@ def update_dashboard(n, selected_strategies, selected_gens):
 
 # ——— Main Runner ———
 if __name__ == '__main__':
+    from Logging_Config import configure_logging
+    configure_logging()
     if not os.path.isdir(PARQUET_DIR):
-        print(f"[WARN] Parquet directory not found: {PARQUET_DIR}")
+        logger.warning(f"[WARN] Parquet directory not found: {PARQUET_DIR}")
     app.run_server(debug=True)

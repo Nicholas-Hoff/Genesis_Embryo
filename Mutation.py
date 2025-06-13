@@ -6,6 +6,8 @@ import itertools
 import json
 
 from typing import Any, Dict, Tuple, List, Callable, Optional, Union
+
+logger = logging.getLogger(__name__)
 from colorama import Fore, Style
 from Strategy import SynthStrategy, StrategyRegistry   # ← add SynthStrategy here
 
@@ -148,8 +150,7 @@ def mutation_cycle(
     before_metrics = SystemHealth.check()
     before_score = Survival.score(before_metrics)["composite"]
     is_stuck = stagnant_cycles >= stuck_threshold
-    print(f"{Fore.RED}[MUTATION CYCLE] is_stuck={is_stuck} (stagnant={stagnant_cycles}){Style.RESET_ALL}")
-    logging.warning(f"[MUTATION CYCLE] is_stuck={is_stuck} (stagnant={stagnant_cycles})")
+    logger.warning(f"[MUTATION CYCLE] is_stuck={is_stuck} (stagnant={stagnant_cycles})")
 
     # 2) Pick and apply strategy
     choice, strat = embryo.mutator.pick_strategy(meta_weights, is_stuck)
@@ -172,7 +173,7 @@ def mutation_cycle(
         disk=scored_after["disk"],
         network=scored_after.get("network", 0.0)
     )
-    print(f"[SCORE] before={before_score:.4f}, after={new_score:.4f}")
+    logger.info(f"[SCORE] before={before_score:.4f}, after={new_score:.4f}")
 
     # 4) Compute reward & update weights
     reward = new_score - before_score
@@ -183,7 +184,7 @@ def mutation_cycle(
     total_w = sum(meta_weights.values()) or 1.0
     for strat_name in meta_weights:
         meta_weights[strat_name] /= total_w
-    print(f"{Fore.MAGENTA}[META] normalized weights: {meta_weights}{Style.RESET_ALL}")
+    logger.info(f"[META] normalized weights: {meta_weights}")
 
     if new_score < before_score:
         embryo.__dict__.clear()
@@ -213,7 +214,7 @@ class Archive:
             heapq.heappush(self._heap, entry)
         else:
             heapq.heappushpop(self._heap, entry)
-        print(f"[ARCHIVE] considered score={score}")
+        logger.debug(f"[ARCHIVE] considered score={score}")
 
     def seed(self, embryo: Any) -> None:
         if not self._heap:
@@ -221,14 +222,14 @@ class Archive:
         if random.random() < 0.2:
             score, _, state = random.choice(self._heap)
             embryo.__dict__.update(state)
-            print(f"[ARCHIVE] seeded from champion score={score}")
+            logger.info(f"[ARCHIVE] seeded from champion score={score}")
 
     def replay_success(self, embryo: Any) -> None:
         if not self._heap:
             return
         best_score, _, best_state = max(self._heap, key=lambda x: x[0])
         embryo.__dict__.update(best_state)
-        print(f"[REPLAY] restored best state score={best_score}")
+        logger.info(f"[REPLAY] restored best state score={best_score}")
 
     # ─── NEW: Export to JSON ────────────────────────────────────────────
     def to_json(self) -> str:
@@ -341,7 +342,7 @@ class MutationEngine:
         probs = [w/total for w in wts]
         choice = random.choices(names, weights=probs, k=1)[0]
         logging.debug(f"[STRATEGY_ENGINE] chosen '{choice}' weights={probs}")
-        print(f"{Fore.CYAN}[STRATEGY_ENGINE] choosing {choice} (weights={probs}){Style.RESET_ALL}")
+        logger.debug(f"[STRATEGY_ENGINE] choosing {choice} weights={probs}")
         return choice, self.registry.get(choice)
 
     def register(
@@ -354,7 +355,7 @@ class MutationEngine:
         self.registry.register(strat)
         self.weights[name] = weight
         logging.debug(f"[REGISTER] {name} weight={weight}")
-        print(f"[REGISTER] {name} weight={weight}")
+        logger.debug(f"[REGISTER] {name} weight={weight}")
 
     def get_strategy(self, name: str) -> Optional[SynthStrategy]:
         return self.registry.get(name)

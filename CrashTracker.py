@@ -3,7 +3,10 @@
 import os
 import json
 import time
+import logging
 from colorama import Fore, Style
+
+logger = logging.getLogger(__name__)
 
 _CACHE_FILE = os.path.expanduser("~/.embryo_crash_log.json")
 
@@ -24,7 +27,7 @@ class CrashTracker:
             # Corrupted JSON: back it up and start fresh
             backup = _CACHE_FILE + ".bak"
             os.replace(_CACHE_FILE, backup)
-            print(f"{Fore.YELLOW}[CRASH TRACKER] Corrupted log; backed up to {backup}{Style.RESET_ALL}")
+            logger.warning(f"[CRASH TRACKER] Corrupted log; backed up to {backup}")
             self.crashes = []
             # write a new empty log
             try:
@@ -33,7 +36,7 @@ class CrashTracker:
             except Exception:
                 pass
         except Exception as e:
-            print(f"{Fore.RED}[CRASH TRACKER] Failed to load crash log: {e}{Style.RESET_ALL}")
+            logger.error(f"[CRASH TRACKER] Failed to load crash log: {e}")
             self.crashes = []
 
     def _save(self):
@@ -41,7 +44,7 @@ class CrashTracker:
             with open(_CACHE_FILE, 'w', encoding='utf-8') as f:
                 json.dump(self.crashes, f, indent=2)
         except Exception as e:
-            print(f"{Fore.RED}[CRASH TRACKER] Failed to save crash log: {e}{Style.RESET_ALL}")
+            logger.error(f"[CRASH TRACKER] Failed to save crash log: {e}")
 
     def record_crash(self, goal: str, phase: str, context: dict = None):
         event = {
@@ -52,7 +55,7 @@ class CrashTracker:
         }
         self.crashes.append(event)
         self._save()
-        print(f"{Fore.RED}[CRASH] Logged fatal event: {goal} during {phase} — {event['context']}{Style.RESET_ALL}")
+        logger.error(f"[CRASH] Logged fatal event: {goal} during {phase} — {event['context']}")
 
     def log_crash(self, context: dict):
         goal  = context.get("goal",  "unknown")
@@ -74,7 +77,7 @@ class CrashTracker:
     def clear(self):
         self.crashes = []
         self._save()
-        print(f"{Fore.YELLOW}[CRASH TRACKER] Cleared crash history{Style.RESET_ALL}")
+        logger.info("[CRASH TRACKER] Cleared crash history")
 
     # ─── NEW: Export to JSON ────────────────────────────────────────────
     def to_json(self) -> str:
