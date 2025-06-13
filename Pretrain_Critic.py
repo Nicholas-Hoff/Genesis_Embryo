@@ -4,7 +4,11 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
+import logging
 from Genesis_Embryo_Core import Critic
+from Logging_Config import configure_logging
+
+logger = logging.getLogger(__name__)
 
 # ←— point at the merged DB you just built ——
 DB_PATH         = 'godseed_training.db'
@@ -31,8 +35,8 @@ def load_transitions(db_path=DB_PATH):
     con.close()
 
     # sanity-check
-    print(f"  → Loaded {len(df)} transitions")
-    print(f"    time span: {df.ts.min()}  →  {df.ts.max()}")
+    logger.info(f"Loaded {len(df)} transitions")
+    logger.info(f"time span: {df.ts.min()} -> {df.ts.max()}")
     return df
 
 def pretrain_critic(df, critic, optimizer,
@@ -61,17 +65,18 @@ def pretrain_critic(df, critic, optimizer,
             optimizer.step()
             total_loss += loss.item() * s.size(0)
         avg_loss = total_loss / len(loader.dataset)
-        print(f'[Pretrain] Epoch {epoch}/{epochs}  Loss={avg_loss:.6f}')
+        logger.info(f'[Pretrain] Epoch {epoch}/{epochs}  Loss={avg_loss:.6f}')
     return critic
 
 def main():
+    configure_logging()
     df = load_transitions()
     critic    = Critic(input_dim=5, hidden=32)
     optimizer = optim.Adam(critic.parameters(), lr=LR)
 
     critic = pretrain_critic(df, critic, optimizer)
     torch.save(critic.state_dict(), 'critic_pretrained.pt')
-    print('[Pretrain] Saved pretrained weights to critic_pretrained.pt')
+    logger.info('Saved pretrained weights to critic_pretrained.pt')
 
 if __name__ == '__main__':
     main()

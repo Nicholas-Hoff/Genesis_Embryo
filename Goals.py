@@ -10,6 +10,8 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 import numpy as np
 from colorama import Fore, Style
+
+logger = logging.getLogger(__name__)
 import pickle
 from pathlib import Path
 
@@ -177,7 +179,7 @@ class GoalGenerator:
             if g.name in self.generated:
                 continue
             if not training and g.name in crash_goals:
-                print(f"{Fore.RED}[FILTER] Skipping crash-prone goal: {g.name}{Style.RESET_ALL}")
+                logger.warning(f"[FILTER] Skipping crash-prone goal: {g.name}")
                 continue
             filtered.append(g)
             self.generated.add(g.name)
@@ -301,7 +303,9 @@ class GoalEngine:
             limit=1
         )
         if crashes:
-            print(f"{Fore.RED}[CRASH PENALTY] Recent crash tied to '{self.current_goal}' — penalty applied{Style.RESET_ALL}")
+            logger.warning(
+                f"[CRASH PENALTY] Recent crash tied to '{self.current_goal}' — penalty applied"
+            )
             reward -= 0.5
 
         # Q-learning update

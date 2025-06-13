@@ -2,6 +2,8 @@ import logging
 from typing import Callable, Dict, List, Any, Optional
 from colorama import Fore, Style
 
+logger = logging.getLogger(__name__)
+
 # ─── SynthStrategy ──────────────────────────────────────────────────────────
 
 class SynthStrategy:
@@ -25,11 +27,11 @@ class SynthStrategy:
         except Exception as e:
             self.error_count += 1
             logging.warning(f"[STRATEGY ERROR] {self.name}: {e}")
-            print(f"{Fore.RED}[STRATEGY ERROR] {self.name}: {e}{Style.RESET_ALL}")
+            logger.warning(f"[STRATEGY ERROR] {self.name}: {e}")
             raise
         else:
             self.success_count += 1
-            print(f"{Fore.GREEN}[STRATEGY APPLIED] {self.name} → {desc}{Style.RESET_ALL}")
+            logger.info(f"[STRATEGY APPLIED] {self.name} -> {desc}")
             return desc, ctx
 
     @property
@@ -76,7 +78,7 @@ class StrategyRegistry:
         for name, strat in list(self._strategies.items()):
             if strat.is_dead and (name not in self.DEFAULT_STRATEGIES) and not name.startswith("tweak_"):
                 logging.info(f"[PRUNE] strategy '{name}' died (errors={strat.error_count})")
-                print(f"{Fore.MAGENTA}[PRUNE] strategy {name}{Style.RESET_ALL}")
+                logger.info(f"[PRUNE] strategy {name}")
                 del self._strategies[name]
 
     def remove(self, name: str) -> None:
@@ -131,14 +133,14 @@ class MetaMutator:
             history.pop(s, None)
             weights.pop(s, None)
             logging.info(f"[META PRUNE] dropped strategy '{s}'")
-            print(f"{Fore.MAGENTA}[META PRUNE] strategy {s}{Style.RESET_ALL}")
+            logger.info(f"[META PRUNE] strategy {s}")
 
         # Renormalize
         total_w = sum(weights.values()) or 1.0
         for strat in weights:
             weights[strat] /= total_w
         logging.info(f"[META] weights normalized: {weights}")
-        print(f"{Fore.MAGENTA}[META] weights normalized: {weights}{Style.RESET_ALL}")
+        logger.info(f"[META] weights normalized: {weights}")
 
     @staticmethod
     def optimize_hyperparameters(
@@ -169,9 +171,10 @@ class MetaMutator:
         elif success_rate > 0.8:
             cfg.set("rollback_required_cycles", max(curr_rb - 1, 1))
 
-        logging.info(
-            f"[HYPER] success_rate={success_rate:.2f} → init={new_init:.3f}, floor={new_floor:.3f}, anneal={cfg.get('mutation_rate_anneal'):.3f}, rollback_cycles={cfg.get('rollback_required_cycles')}"
+        msg = (
+            f"[HYPER] success_rate={success_rate:.2f} -> init={new_init:.3f}, "
+            f"floor={new_floor:.3f}, anneal={cfg.get('mutation_rate_anneal'):.3f}, "
+            f"rollback_cycles={cfg.get('rollback_required_cycles')}"
         )
-        print(
-            f"{Fore.CYAN}[HYPER] success_rate={success_rate:.2f} → init={new_init:.3f}, floor={new_floor:.3f}, anneal={cfg.get('mutation_rate_anneal'):.3f}, rollback_cycles={cfg.get('rollback_required_cycles')}{Style.RESET_ALL}"
-        )
+        logging.info(msg)
+        logger.info(msg)
