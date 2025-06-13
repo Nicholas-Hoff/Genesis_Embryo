@@ -29,7 +29,7 @@
             "duration": 10.0
         },
         "memory_spike": {
-            "threshold_delta": 10.0,
+            "threshold_delta": 9.158426408777922,
             "duration": 10.0
         },
         "io_stress": {
@@ -38,7 +38,7 @@
         },
         "network_spike": {
             "threshold_delta": 0.1,
-            "duration": 10.0
+            "duration": 40.0
         }
     },
     "cpu_threshold": 0.8,
