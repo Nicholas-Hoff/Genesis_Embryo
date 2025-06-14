@@ -1,5 +1,4 @@
 import ast
-import astor
 import inspect
 import random
 import time
@@ -190,15 +189,9 @@ class MetaStrategyEngine:
         return child
 
     def _compile_strategy(self, func_def: ast.FunctionDef, base_name: str) -> Optional[MetaSynthStrategy]:
-        module = ast.Module(body=[func_def], type_ignores=[])
-        ast.fix_missing_locations(module)
         if not func_def.body:
             func_def.body = [ast.Pass()]
-            ast.fix_missing_locations(func_def)
         try:
-            # generate source code from AST
-            src = astor.to_source(module)
-            # ensure necessary imports and safe defaults
             header = (
                 "import random\n"
                 "param = ''\n"
@@ -212,14 +205,15 @@ class MetaStrategyEngine:
                 "from Goals import Goal, RollingStats, GoalGenerator, GoalEngine, default_q_values\n"
                 "from Strategy import StrategyRegistry, SynthStrategy\n"
             )
-            full_src = header + src
-            # unique function name
             name = f"meta_{base_name}_{int(time.time())}_{self._counter}"
             self._counter += 1
-            full_src = full_src.replace(func_def.name, name)
-            # compile and extract
+            func_def.name = name
+            header_module = ast.parse(header)
+            module = ast.Module(body=header_module.body + [func_def], type_ignores=[])
+            ast.fix_missing_locations(module)
+            code = compile(module, "<ast>", "exec")
             exec_ns: Dict[str, Callable] = {}
-            exec(full_src, exec_ns)
+            exec(code, exec_ns)
             func = exec_ns.get(name)
             if not callable(func):
                 return None
