@@ -163,9 +163,10 @@ Contributions, bug reports, and feature requests are welcome! Please:
 
 ## 🧪 Running Tests
 
-Install the dependencies (see Installation above) and then execute:
+Install the dependencies and then execute the test suite:
 
 ```bash
+scripts/setup_tests.sh
 pytest
 ```
 
