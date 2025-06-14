@@ -698,23 +698,20 @@ class Embryo:
         new = cls.__new__(cls)
 
         # 1) Shallow-copy the long-lived/non-pickleable resources:
-        for attr in (
+        skip_attrs = (
             'db', 'snap_mgr', 'state_manager', 'duckdb_state_io',
             'world_model', 'world_trainer', 'action_embedding',
             'critic', 'goal_engine', 'goal_gen', 'health',
-            '_log_pool', 'resource_manager'
-        ):
+            '_log_pool', 'resource_manager',
+            'mutator', 'meta_engine', 'weight_mgr', 'CrashTracker'
+        )
+        for attr in skip_attrs:
             if hasattr(self, attr):
                 setattr(new, attr, getattr(self, attr))
 
         # 2) Deep-copy everything else into the new instance:
         for key, val in self.__dict__.items():
-            if key not in (
-                'db', 'snap_mgr', 'state_manager', 'duckdb_state_io',
-                'world_model', 'world_trainer', 'action_embedding',
-                'critic', 'goal_engine', 'goal_gen', 'health',
-                '_log_pool', 'resource_manager'
-            ):
+            if key not in skip_attrs:
                 setattr(new, key, copy.deepcopy(val, memo))
 
         return new
