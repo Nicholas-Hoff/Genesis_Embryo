@@ -46,6 +46,7 @@ from MemoryOptimizer import EfficientStateManager, TimeSimEngine, MemoryAIManage
 from Persistence import MemoryArchive, MemoryDB, SnapshotManager, DuckdbStateIO
 from Meta_Strategy_Engine import MetaStrategyEngine
 from Logging_Config import configure_logging
+import settings
 
 from multiprocessing import current_process
 
@@ -572,6 +573,7 @@ class Embryo:
         choice_emb_dim = int(self.cfg.get("world_model_choice_dim", 8))
         hidden_dim     = int(self.cfg.get("world_model_hidden", 128))
         learning_rate  = float(self.cfg.get("world_model_lr", 1e-3))
+        grad_clip      = self.cfg.get("world_model_grad_clip", settings.WORLD_MODEL_GRAD_CLIP)
 
         # (b) Build a single WorldModel instance and move to device:
         self.world_model = WorldModel(state_dim, choice_emb_dim, hidden_dim).to(self.device)
@@ -579,7 +581,8 @@ class Embryo:
         # (c) Instantiate the WorldModelTrainer on exactly that same instance:
         self.world_trainer = WorldModelTrainer(
             self.world_model,
-            lr=learning_rate
+            lr=learning_rate,
+            grad_clip=grad_clip
         )
 
         # ─── NOW that choice_emb_dim is in scope, build the action_embedding ──

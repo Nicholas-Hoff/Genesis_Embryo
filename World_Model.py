@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.amp import GradScaler, autocast
+from torch.nn.utils import clip_grad_norm_
 
 # 1) Device setup (if not already there)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -53,7 +54,8 @@ class WorldModelTrainer:
     def __init__(
         self,
         model: WorldModel,
-        lr: float = 1e-3
+        lr: float = 1e-3,
+        grad_clip: float | None = None
     ):
         """
         Args:
@@ -68,6 +70,7 @@ class WorldModelTrainer:
 
         # 2) Create an optimizer on the model’s parameters
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
+        self.grad_clip = grad_clip
 
         # 3) Mixed‐precision (AMP) setup if running on CUDA
         use_amp = (self.device.type == "cuda")
@@ -116,10 +119,16 @@ class WorldModelTrainer:
         self.optimizer.zero_grad()
         if self.scaler.is_enabled():  # AMP path
             self.scaler.scale(loss).backward()
+            # Unscale before clipping so grads are in fp32
+            self.scaler.unscale_(self.optimizer)
+            if self.grad_clip is not None:
+                clip_grad_norm_(self.model.parameters(), self.grad_clip)
             self.scaler.step(self.optimizer)
             self.scaler.update()
         else:  # regular fp32
             loss.backward()
+            if self.grad_clip is not None:
+                clip_grad_norm_(self.model.parameters(), self.grad_clip)
             self.optimizer.step()
 
         return loss.item()
