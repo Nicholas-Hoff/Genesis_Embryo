@@ -166,11 +166,13 @@ class DynamicResourceManager:
     def _adjust(self, procs: Dict[int, Dict[str, float]]) -> None:
         total_cores = list(range(psutil.cpu_count(logical=True)))
         win_platform = os.name == 'nt'
+        changed = 0
         for pid, info in procs.items():
             cat = self._categorize(info)
             self.priorities[pid] = cat
             try:
                 proc = psutil.Process(pid)
+                name = proc.name()
 
                 if win_platform:
                     mapping = {
@@ -187,17 +189,43 @@ class DynamicResourceManager:
                         'low': 10,
                     }
 
-                proc.nice(mapping.get(cat, mapping['low']))
+                desired_nice = mapping.get(cat, mapping['low'])
+                old_nice = proc.nice()
+                changed_nice = False
+                if old_nice != desired_nice:
+                    proc.nice(desired_nice)
+                    changed_nice = True
 
-                # CPU affinity adjustments are platform independent
-                if cat == 'critical' and hasattr(proc, 'cpu_affinity'):
-                    proc.cpu_affinity(total_cores)
-                elif cat == 'medium' and hasattr(proc, 'cpu_affinity') and len(total_cores) > 1:
-                    proc.cpu_affinity(total_cores[:-1])
-                elif cat == 'low' and hasattr(proc, 'cpu_affinity') and len(total_cores) > 1:
-                    proc.cpu_affinity([total_cores[-1]])
+                desired_affinity = None
+                changed_affinity = False
+
+                if hasattr(proc, 'cpu_affinity'):
+                    current_affinity = proc.cpu_affinity()
+                    if cat == 'critical':
+                        desired_affinity = total_cores
+                    elif cat == 'medium' and len(total_cores) > 1:
+                        desired_affinity = total_cores[:-1]
+                    elif cat == 'low' and len(total_cores) > 1:
+                        desired_affinity = [total_cores[-1]]
+
+                    if desired_affinity is not None and current_affinity != desired_affinity:
+                        proc.cpu_affinity(desired_affinity)
+                        changed_affinity = True
+
+                    # After potential change
+                    new_affinity = proc.cpu_affinity()
+                else:
+                    new_affinity = []
+
+                if changed_nice or changed_affinity:
+                    changed += 1
+                    self.logger.debug(
+                        f"Adjusted PID {pid} ({name}) priority {proc.nice()} affinity {new_affinity}"
+                    )
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
+
+        self.logger.debug(f"Processed {len(procs)} processes; adjusted {changed}")
 
     # ─── Safe Termination ────────────────────────────────────────
     def safe_terminate(self, pid: int) -> bool:
