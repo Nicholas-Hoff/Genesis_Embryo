@@ -10,3 +10,4 @@ scikit-learn
 colorama
 pydantic
 astor
+pygad>=3.3.1

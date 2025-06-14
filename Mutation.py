@@ -10,6 +10,7 @@ from typing import Any, Dict, Tuple, List, Callable, Optional, Union
 logger = logging.getLogger(__name__)
 from colorama import Fore, Style
 from Strategy import SynthStrategy, StrategyRegistry   # ← add SynthStrategy here
+from PyGAD_Strategy import pygad_mutation
 
 # Mutation strategies module
 
@@ -29,6 +30,7 @@ DEFAULT_META_WEIGHTS: Dict[str, float] = {
     "gaussian":       1.0,
     "random_uniform": 1.0,
     "creep":          1.0,
+    "pygad":         1.0,
     "reset":          0.0,
 }
 
@@ -336,7 +338,7 @@ class MutationEngine:
         meta_weights: Dict[str, float],
         is_stuck: bool
     ) -> Tuple[str, SynthStrategy]:
-        names = ["gaussian", "random_uniform", "creep"] + (['reset'] if is_stuck else [])
+        names = ["gaussian", "random_uniform", "creep", "pygad"] + (['reset'] if is_stuck else [])
         wts   = [meta_weights.get(n, 0.0) for n in names]
         total = sum(wts) or 1.0
         probs = [w/total for w in wts]
@@ -368,11 +370,12 @@ DEFAULT_STRATEGIES_MAP: Dict[str, Callable[..., Tuple[str, dict]]] = {
     "gaussian":       gaussian,
     "random_uniform": random_uniform,
     "creep":          creep,
+    "pygad":          pygad_mutation,
     "reset":          reset,
 }
 
 __all__ = [
-    "gaussian", "random_uniform", "creep", "reset",
+    "gaussian", "random_uniform", "creep", "pygad_mutation", "reset",
     "embryo_mutation", "mutation_cycle", "Archive", "MutationEngine",
     "DEFAULT_STRATEGIES_MAP",
 ]
