@@ -163,18 +163,43 @@ def mutation_cycle(
     scored_after = Survival.score(raw_after)
     new_score = scored_after["composite"]
 
-    embryo.db.record_mutation_context(
-        param=ctx["param"],
-        strategy=choice,
-        old=ctx.get("old", 0.0),
-        new=ctx.get("new", 0.0),
-        before=before_score,
-        after=new_score,
-        cpu=scored_after["cpu"],
-        mem=scored_after["memory"],
-        disk=scored_after["disk"],
-        network=scored_after.get("network", 0.0)
-    )
+    params = ctx.get("param")
+    olds = ctx.get("old", 0.0)
+    news = ctx.get("new", 0.0)
+
+    if isinstance(params, list) or isinstance(olds, list) or isinstance(news, list):
+        if not isinstance(params, list):
+            params = [params]
+        if not isinstance(olds, list):
+            olds = [olds] * len(params)
+        if not isinstance(news, list):
+            news = [news] * len(params)
+        for p, o, n in zip(params, olds, news):
+            embryo.db.record_mutation_context(
+                param=p,
+                strategy=choice,
+                old=o,
+                new=n,
+                before=before_score,
+                after=new_score,
+                cpu=scored_after["cpu"],
+                mem=scored_after["memory"],
+                disk=scored_after["disk"],
+                network=scored_after.get("network", 0.0)
+            )
+    else:
+        embryo.db.record_mutation_context(
+            param=params,
+            strategy=choice,
+            old=olds,
+            new=news,
+            before=before_score,
+            after=new_score,
+            cpu=scored_after["cpu"],
+            mem=scored_after["memory"],
+            disk=scored_after["disk"],
+            network=scored_after.get("network", 0.0)
+        )
     logger.info(f"[SCORE] before={before_score:.4f}, after={new_score:.4f}")
 
     # 4) Compute reward & update weights
