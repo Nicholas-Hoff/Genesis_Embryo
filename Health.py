@@ -186,8 +186,12 @@ class SystemHealth:
         with proc.oneshot():
             cpu = proc.cpu_percent(None)
             memory = proc.memory_percent()
-            io_counters = proc.io_counters()  # namedtuple(read_bytes, write_bytes, ...)
-        read_bytes, write_bytes = io_counters.read_bytes, io_counters.write_bytes
+            try:
+                io_counters = proc.io_counters()  # namedtuple(read_bytes, write_bytes, ...)
+                read_bytes, write_bytes = io_counters.read_bytes, io_counters.write_bytes
+            except AttributeError:
+                # Some psutil implementations lack io_counters
+                read_bytes = write_bytes = 0
 
         # ─── 2) COLLECT STATIC METRICS (e.g. disk, load) ─────────────
         metrics: Dict[str, Any] = {}
